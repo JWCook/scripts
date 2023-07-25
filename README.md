@@ -1,5 +1,5 @@
 # parse-yt-links
-Script to parse basic attributes from YouTube videos, given a text document containing YouTube URLs.
+Script to parse basic attributes from YouTube videos (date, title, and views), given a text document containing YouTube URLs.
 Uses public HTML; no API key required.
 
 

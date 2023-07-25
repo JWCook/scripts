@@ -8,7 +8,7 @@ from pathlib import Path
 
 from requests_cache import CachedSession
 
-session = CachedSession(expire_after=timedelta(hours=1))
+session = CachedSession('yt_pages.db', expire_after=timedelta(hours=1))
 
 
 @dataclass
@@ -45,6 +45,34 @@ def parse_videos(source: Path | str, sort_col: str = 'views') -> list[Video]:
     )
 
 
+def to_md(videos: list[Video], dest: str | Path = None, table: bool = False) -> str:
+    """Convert a list of Video objects to a Markdown list or table"""
+    md = f'# Videos ({len(videos)})\n\n'
+    md += _md_table(videos) if table else _md_list(videos)
+
+    if dest:
+        with Path(dest).open('w') as f:
+            f.write(md)
+    return md
+
+
+def _md_list(
+    videos: list[Video],
+) -> str:
+    md = ''
+    for v in videos:
+        md += f'* [{v.title}]({v.url}) ({v.date_str}; {v.views:,} views)\n'
+    return md
+
+
+def _md_table(videos: list[Video]) -> str:
+    md = '| Date | Title | Views | URL |\n'
+    md += '| --- | --- | --- | --- |\n'
+    for v in videos:
+        md += f'| {v.date_str} | {v.title} | {v.views:,} | [{v.url}]({v.url}) |\n'
+    return md
+
+
 def _get_html(url: str) -> str:
     """Get HTML by URL or YouTube video ID"""
     if not url.startswith("http"):
@@ -79,12 +107,17 @@ def _get_yt_urls(source: Path | str):
 
     # Too lazy to get this regex working
     # return re.findall(r"https?://(?:www\.)?(?:youtu\.be/|youtube\.com\S+)", text)
-    urls = re.findall(r"(https?://[^\s^\)]+)", source)
 
+    urls = re.findall(r"(https?://[^\s^\)]+)", source)
     return [url for url in urls if 'youtube.com' in url or 'youtu.be' in url]
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else 'test.md'
-    for video in parse_videos(Path(path)):
+    if len(sys.argv) == 1 or sys.argv[1] in ('-h', '--help'):
+        print(f"Usage: {sys.argv[0]} [path]")
+        sys.exit(0)
+
+    videos = parse_videos(Path(sys.argv[1]))
+    # to_md(videos, Path('table.md'), table=True)
+    for video in videos:
         print(video)
