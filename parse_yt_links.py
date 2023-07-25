@@ -7,6 +7,7 @@ from operator import attrgetter
 from pathlib import Path
 
 from requests_cache import CachedSession
+from rich.progress import track
 
 session = CachedSession('yt_pages.db', expire_after=timedelta(hours=1))
 
@@ -38,11 +39,11 @@ class Video:
 
 def parse_videos(source: Path | str, sort_col: str = 'views') -> list[Video]:
     """Get Video objects from a text file containing YouTube URLs"""
-    return sorted(
-        [Video.from_url(url) for url in _get_yt_urls(source)],
-        key=attrgetter(sort_col),
-        reverse=True,
-    )
+    urls = _get_yt_urls(source)
+    videos = []
+    for url in track(urls, description='Parsing videos...'):
+        videos.append(Video.from_url(url))
+    return sorted(videos, key=attrgetter(sort_col), reverse=True)
 
 
 def to_md(videos: list[Video], dest: str | Path = None, table: bool = False) -> str:
