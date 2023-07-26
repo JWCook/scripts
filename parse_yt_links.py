@@ -3,8 +3,10 @@ import re
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from html import unescape
 from operator import attrgetter
 from pathlib import Path
+from urllib.parse import unquote
 
 from requests_cache import CachedSession
 from rich.progress import track
@@ -23,7 +25,7 @@ class Video:
     def from_url(cls, url: str) -> 'Video':
         html = _get_html(url)
         return cls(
-            url=url.split("&")[0],
+            url=_normalize_url(url),
             date=_get_date(html),
             title=_get_title(html),
             views=_get_view_count(html),
@@ -31,13 +33,13 @@ class Video:
 
     @property
     def date_str(self):
-        return self.date.strftime("%Y-%m-%d")
+        return self.date.strftime('%Y-%m-%d')
 
     def __str__(self):
         return f'[{self.date_str}] [{self.views:,}] {self.title} ({self.url})'
 
 
-def parse_videos(source: Path | str, sort_col: str = 'views') -> list[Video]:
+def parse_videos(source: Path | str, sort_col: str = 'date') -> list[Video]:
     """Get Video objects from a text file containing YouTube URLs"""
     urls = _get_yt_urls(source)
     videos = []
@@ -76,23 +78,33 @@ def _md_table(videos: list[Video]) -> str:
 
 def _get_html(url: str) -> str:
     """Get HTML by URL or YouTube video ID"""
-    if not url.startswith("http"):
-        url = f"https://www.youtube.com/watch?v={url}"
+    if not url.startswith('http'):
+        url = f'https://www.youtube.com/watch?v={url}'
     return session.get(url).text
+
+
+def _normalize_url(url: str) -> str:
+    """Convert any YouTube URL to a short url"""
+    if url.startswith('http'):
+        url = url.split('&')[0]
+        url = unquote(url)
+        url = url.replace('https://www.youtube.com/watch?v=', 'https://youtu.be/')
+    return url
 
 
 def _get_view_count(html: str) -> int:
     views = re.search(r'"views":{"simpleText":"([^"]+) views"', html)
 
     try:
-        return int(views.group(1).replace(",", ""))
+        return int(views.group(1).replace(',', ''))
     except (AttributeError, TypeError, ValueError):
         return 0
 
 
 def _get_title(html: str) -> str:
     title = re.search(r'<title>([^<]+)</title>', html)
-    return title.group(1).replace(" - YouTube", "")
+    title = title.group(1).replace(' - YouTube', '')
+    return unescape(title)
 
 
 def _get_date(html: str) -> datetime:
@@ -107,15 +119,15 @@ def _get_yt_urls(source: Path | str):
         source = source.read_text()
 
     # Too lazy to get this regex working
-    # return re.findall(r"https?://(?:www\.)?(?:youtu\.be/|youtube\.com\S+)", text)
+    # return re.findall(r'https?://(?:www\.)?(?:youtu\.be/|youtube\.com\S+)', text)
 
-    urls = re.findall(r"(https?://[^\s^\)]+)", source)
+    urls = re.findall(r'(https?://[^\s^\)]+)', source)
     return [url for url in urls if 'youtube.com' in url or 'youtu.be' in url]
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) == 1 or sys.argv[1] in ('-h', '--help'):
-        print(f"Usage: {sys.argv[0]} [path]")
+        print(f'Usage: {sys.argv[0]} [path]')
         sys.exit(0)
 
     videos = parse_videos(Path(sys.argv[1]))
