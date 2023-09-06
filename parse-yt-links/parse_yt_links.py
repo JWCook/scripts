@@ -69,10 +69,10 @@ def _md_list(
 
 
 def _md_table(videos: list[Video]) -> str:
-    md = '| Date | Title | Views | URL |\n'
-    md += '| --- | --- | --- | --- |\n'
+    md = '| Date Uploaded | Views | Title |\n'
+    md += '| ------------ | ----- | ----- |\n'
     for v in videos:
-        md += f'| {v.date_str} | {v.title} | {v.views:,} | [{v.url}]({v.url}) |\n'
+        md += f'| {v.date_str} | {v.views:,} | [{v.title}]({v.url}) |\n'
     return md
 
 
