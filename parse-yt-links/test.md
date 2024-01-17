@@ -4,4 +4,3 @@
 * [Link 2](https://www.youtube.com/watch?v=fr_hXLDLc38)
 * [Non-YT link](https://www.google.com/search?q=test)
 * Bare link: https://youtu.be/BxV14h0kFs0
-
