@@ -7,6 +7,7 @@
 # ]
 # ///
 import argparse
+from dataclasses import dataclass
 from datetime import timedelta
 from os import getenv
 from pathlib import Path
@@ -25,7 +26,20 @@ session = CachedSession(
 )
 
 
-def fetch_dockerhub_tags(repo):
+@dataclass
+class Tag:
+    name: str
+    ts: str | None
+
+    @property
+    def date(self) -> str:
+        return self.ts.split('T')[0] if self.ts else 'N/A'
+
+    def __str__(self) -> str:
+        return f'{self.name} - {self.date}'
+
+
+def fetch_dockerhub_tags(repo) -> list[Tag]:
     """Fetch tags from Docker Hub"""
     repo = repo.replace('docker.io/', '')
     if '/' in repo:
@@ -41,15 +55,14 @@ def fetch_dockerhub_tags(repo):
         response.raise_for_status()
         data = response.json()
         for item in data['results']:
-            date_str = _format_date(item.get('last_updated'))
-            all_tags.append(f'{item["name"]} - {date_str}')
+            all_tags.append(Tag(name=item['name'], ts=item.get('last_updated')))
         url = data.get('next')
 
     return all_tags
 
 
 # TODO: handle /users in addition to /orgs
-def fetch_ghcr_tags(repo):
+def fetch_ghcr_tags(repo) -> list[Tag]:
     """Fetch tags from GitHub Container Registry"""
     if not GH_API_TOKEN:
         raise ValueError('GitHub personal access token required')
@@ -68,13 +81,12 @@ def fetch_ghcr_tags(repo):
     all_tags = []
     for item in data:
         for tag in item.get('metadata', {}).get('container', {}).get('tags', []):
-            date_str = _format_date(item.get('created_at'))
-            all_tags.append(f'{tag} - {date_str}')
+            all_tags.append(Tag(name=tag, ts=item.get('created_at')))
 
     return all_tags
 
 
-def fetch_ecr_tags(repo: str):
+def fetch_ecr_tags(repo: str) -> list[Tag]:
     """Fetch tags from Amazon ECR Public"""
     registry, repo = repo.replace('public.ecr.aws/', '').split('/')
     response = session.post(
@@ -83,11 +95,7 @@ def fetch_ecr_tags(repo: str):
     )
     response.raise_for_status()
     tags_json = response.json()['imageTagDetails']
-    return [f'{i["imageTag"]} - {_format_date(i["createdAt"])}' for i in tags_json]
-
-
-def _format_date(dt: str | None) -> str:
-    return dt.split('T')[0] if dt else 'N/A'
+    return [Tag(name=i['imageTag'], ts=i['createdAt']) for i in tags_json]
 
 
 def fetch_tags(repo: str) -> list[str]:
@@ -97,14 +105,14 @@ def fetch_tags(repo: str) -> list[str]:
         tags = fetch_ecr_tags(repo)
     else:
         tags = fetch_dockerhub_tags(repo)
-    return tags
+    return sorted([str(tag) for tag in tags])
 
 
 def main():
     parser = argparse.ArgumentParser(description='Fetch all tags and dates for a Docker container')
     parser.add_argument('repo', help='Repository in format [registry/]namespace/repository')
     args = parser.parse_args()
-    for tag in sorted(fetch_tags(args.repo)):
+    for tag in fetch_tags(args.repo):
         print(tag)
 
 
