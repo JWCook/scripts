@@ -2,15 +2,9 @@
 Script to parse basic attributes from YouTube videos (date, title, and views), given a text document containing YouTube URLs.
 Uses public HTML; no API key required.
 
-
-## Installation
-```bash
-pip install -r requirements.txt
-```
-
 ## Usage
 ```bash
-./parse-yt-links.py <input-file>
+parse-yt-links.py <input-file>
 ```
 
 Example:

@@ -1,4 +1,12 @@
-#! /usr/bin/env python
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "requests-cache",
+#     "rich",
+# ]
+# ///
+
 import argparse
 import re
 from dataclasses import dataclass, field
@@ -64,7 +72,7 @@ def to_md(videos: list[Video], output_file: str = None, table: bool = False) -> 
         return md
 
     if output_file:
-        logger.debug(f"Writing {'table' if table else 'list'} to {output_file}")
+        logger.debug(f'Writing {"table" if table else "list"} to {output_file}')
         with Path(output_file).open('w') as f:
             f.write(md)
     return md

@@ -1,4 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "mutagen",
+# ]
+# ///
+
 import csv
 from logging import basicConfig, getLogger
 from pathlib import Path
@@ -10,7 +17,7 @@ logger = getLogger(__name__)
 basicConfig(level='DEBUG')
 BookChapters = list[tuple[str, int]]
 
-AUDIO_DIR = Path('/mnt/d/audio_bible')
+AUDIO_DIR = Path('audio_bible')
 
 
 def get_book_chapters() -> BookChapters:
