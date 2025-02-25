@@ -2,9 +2,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: check-json
       - id: check-toml
       - id: check-yaml
-        args: ['--unsafe']
+      - id: fix-byte-order-marker
       - id: end-of-file-fixer
       - id: mixed-line-ending
       - id: trailing-whitespace
@@ -12,4 +15,11 @@ repos:
     rev: v0.9.7
     hooks:
       - id: ruff
+        args: [--fix]
       - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [json, yaml]
+        args: ['--single-quote']

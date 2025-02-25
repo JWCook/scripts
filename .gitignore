@@ -1,8 +1,9 @@
 *.db
 *.sqlite
-output/
 .ruff_cache
 .mypy_cache
+node_modules/
+output/
 
 # Distribution / packaging
 .Python
@@ -27,4 +28,3 @@ venv/
 .idea/
 .vim/
 .vscode/
-

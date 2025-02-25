@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # Source: https://gist.github.com/urschrei/5258588
+import email
 import glob
 import os
-import email
 from email import policy
 from multiprocessing import Pool
 
