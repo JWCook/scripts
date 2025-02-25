@@ -1,6 +1,7 @@
 """Load config from environment variables, and optionally from a `.env` file."""
 
 from logging import basicConfig, getLogger
+from pathlib import Path
 
 import environ
 from dotenv import load_dotenv
@@ -25,7 +26,7 @@ class EnvConfig:
 
 
 # First load .env (if it exists), then read environment variables
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / '.env')
 CONFIG = environ.to_config(EnvConfig)
 basicConfig(level=CONFIG.log_level)
 getLogger('urllib3').setLevel('WARN')

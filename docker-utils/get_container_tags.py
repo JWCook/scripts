@@ -9,12 +9,14 @@
 import argparse
 from datetime import timedelta
 from os import getenv
+from pathlib import Path
 
 from dotenv import load_dotenv
 from requests_cache import CachedSession
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / '.env')
 GH_API_TOKEN = getenv('GH_API_TOKEN')
+
 session = CachedSession(
     'container_registries.db',
     use_temp=True,
