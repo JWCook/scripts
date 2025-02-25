@@ -1,6 +1,6 @@
 """Load config from environment variables, and optionally from a `.env` file."""
 
-from logging import basicConfig
+from logging import basicConfig, getLogger
 
 import environ
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ class EnvConfig:
     sync_endpoint = environ.var()
     aws_access_key = environ.var()
     aws_secret_key = environ.var()
+    dry_run = environ.bool_var(default=False)
     log_level = environ.var(default='INFO')
 
     @property
@@ -27,3 +28,4 @@ class EnvConfig:
 load_dotenv()
 CONFIG = environ.to_config(EnvConfig)
 basicConfig(level=CONFIG.log_level)
+getLogger('urllib3').setLevel('WARN')
