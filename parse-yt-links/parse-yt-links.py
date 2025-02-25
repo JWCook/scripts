@@ -21,7 +21,11 @@ from requests_cache import CachedSession
 from rich.progress import track
 
 logger = getLogger(__name__)
-session = CachedSession('yt_pages.db', expire_after=timedelta(hours=1))
+session = CachedSession(
+    'yt_pages.db',
+    use_temp=True,
+    expire_after=timedelta(hours=1),
+)
 
 
 @dataclass

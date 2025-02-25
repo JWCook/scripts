@@ -3,17 +3,24 @@
 # requires-python = ">=3.10"
 # dependencies = [
 #     "python-dotenv",
-#     "requests",
+#     "requests-cache",
 # ]
 # ///
 import argparse
+from datetime import timedelta
 from os import getenv
 
-import requests
 from dotenv import load_dotenv
+from requests_cache import CachedSession
 
 load_dotenv()
 GH_API_TOKEN = getenv('GH_API_TOKEN')
+session = CachedSession(
+    'container_registries.db',
+    use_temp=True,
+    expire_after=timedelta(hours=1),
+    allowable_methods=['GET', 'POST'],
+)
 
 
 def fetch_dockerhub_tags(repo):
@@ -28,7 +35,7 @@ def fetch_dockerhub_tags(repo):
 
     all_tags = []
     while url:
-        response = requests.get(url)
+        response = session.get(url)
         response.raise_for_status()
         data = response.json()
         for item in data['results']:
@@ -46,7 +53,7 @@ def fetch_ghcr_tags(repo):
         raise ValueError('GitHub personal access token required')
 
     org, repo = repo.replace('ghcr.io/', '').split('/')
-    response = requests.get(
+    response = session.get(
         f'https://api.github.com/orgs/{org}/packages/container/{repo}/versions',
         headers={
             'Authorization': f'Bearer {GH_API_TOKEN}',
@@ -68,7 +75,7 @@ def fetch_ghcr_tags(repo):
 def fetch_ecr_tags(repo: str):
     """Fetch tags from Amazon ECR Public"""
     registry, repo = repo.replace('public.ecr.aws/', '').split('/')
-    response = requests.post(
+    response = session.post(
         'https://api.us-east-1.gallery.ecr.aws/describeImageTags',
         json={'registryAliasName': registry, 'repositoryName': repo},
     )
