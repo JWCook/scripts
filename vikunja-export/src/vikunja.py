@@ -11,11 +11,11 @@ from typing import Iterator
 from dateutil.parser import parse as parse_date
 from html2text import HTML2Text
 
-from .config import IGNORE_LABELS, IGNORE_PROJECTS, OUTPUT_DIR, VJA_SESSION, VK_HOST
+from .config import VJA_SESSION, ignore_labels, ignore_projects, output_dir, vja_host
 
 # Settings from environment variables and/or .env file
-API_BASE_URL = f'https://{VK_HOST}/api/v1'
-TASK_BASE_URL = f'https://{VK_HOST}/tasks'
+API_BASE_URL = f'https://{vja_host}/api/v1'
+TASK_BASE_URL = f'https://{vja_host}/tasks'
 DT_FORMAT = '%Y-%m-%d'
 
 logger = getLogger(__name__)
@@ -49,15 +49,17 @@ def get_tasks() -> Iterator[Task]:
         task['comments'] = response.json()
         if project_id := task.pop('project_id', None):
             task['project'] = projects[project_id]
+        if not task.get('labels'):
+            task['labels'] = []
 
     # Filter out ignored projects and labels
-    logger.debug(f'Ignoring projects {IGNORE_PROJECTS} and labels {IGNORE_LABELS}')
+    logger.debug(f'Ignoring projects {ignore_projects} and labels {ignore_labels}')
     total_tasks = len(tasks)
     tasks = [
         t
         for t in tasks
-        if t['project'] not in IGNORE_PROJECTS
-        and all(lbl['title'] not in IGNORE_LABELS for lbl in t['labels'])
+        if t['project'] not in ignore_projects
+        and all(lbl['title'] not in ignore_labels for lbl in t['labels'])
     ]
     logger.info(f'Found {len(tasks)} tasks ({total_tasks - len(tasks)} ignored)')
 
@@ -86,7 +88,7 @@ def _paginate(url: str):
 
 def get_task_path(task: dict) -> Path:
     normalized_title = re.sub(r'[^\w\s]', '', task['title']).strip().replace(' ', '_')
-    return OUTPUT_DIR / f'{task["id"]}_{normalized_title}.md'
+    return output_dir / f'{task["id"]}_{normalized_title}.md'
 
 
 def get_task_detail(task: dict) -> str:

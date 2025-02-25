@@ -11,7 +11,7 @@ from xml.etree import ElementTree
 
 from dateutil.parser import parse as parse_date
 
-from .config import NC_BASE_URL, NC_DIR, NC_SESSION
+from .config import CONFIG, NC_SESSION
 
 logger = getLogger(__name__)
 
@@ -36,7 +36,7 @@ class RemoteFile:
 
 def webdav_ls() -> list[RemoteFile]:
     """List all files in the remote directory"""
-    response = NC_SESSION.request('PROPFIND', NC_BASE_URL, headers={'Depth': '1'})
+    response = NC_SESSION.request('PROPFIND', CONFIG.nc_base_url, headers={'Depth': '1'})
     xml_response = ElementTree.fromstring(response.content).findall('{DAV:}response')
     return [RemoteFile.from_xml(element) for element in xml_response if not _is_dir(element)]
 
@@ -45,17 +45,16 @@ def _is_dir(element) -> bool:
     return element.find('.//{DAV:}collection') is not None
 
 
-def webdav_upload(local_paths: list[Path], remote_path: Path):
+def webdav_upload(local_path: Path, remote_path: Path):
     """Upload files to Nextcloud via WebDAV"""
     _webdav_mkdir()
-    for local_path in local_paths:
-        response = NC_SESSION.put(
-            f'{NC_BASE_URL}/{remote_path}',
-            data=local_path.read_bytes(),
-        )
+    response = NC_SESSION.put(
+        f'{CONFIG.nc_base_url}/{remote_path}',
+        data=local_path.read_bytes(),
+    )
 
     if response.ok:
-        logger.debug(f'Uploaded {local_path} -> {NC_BASE_URL}/{remote_path}')
+        logger.debug(f'Uploaded {local_path} -> {CONFIG.nc_base_url}/{remote_path}')
     else:
         logger.error(f'Error uploading {local_path}: {response.status_code} {response.text}')
 
@@ -63,7 +62,9 @@ def webdav_upload(local_paths: list[Path], remote_path: Path):
 def webdav_rename(src_path, dest_path):
     """Rename a file on the remote server"""
     response = NC_SESSION.request(
-        'MOVE', f'{NC_BASE_URL}/{src_path}', headers={'Destination': f'{NC_BASE_URL}/{dest_path}'}
+        'MOVE',
+        f'{CONFIG.nc_base_url}/{src_path}',
+        headers={'Destination': f'{CONFIG.nc_base_url}/{dest_path}'},
     )
     if response.status_code == 201:
         logger.debug(f'Renamed {src_path} -> {dest_path}')
@@ -73,7 +74,7 @@ def webdav_rename(src_path, dest_path):
 
 def webdav_delete(remote_path):
     """Delete a file on the remote server"""
-    response = NC_SESSION.delete(f'{NC_BASE_URL}/{remote_path}')
+    response = NC_SESSION.delete(f'{CONFIG.nc_base_url}/{remote_path}')
     if response.status_code == 204:
         logger.debug(f'Deleted {remote_path}')
     else:
@@ -82,14 +83,10 @@ def webdav_delete(remote_path):
 
 def _webdav_mkdir():
     """Create the remote folder if it doesn't already exist"""
-    response = NC_SESSION.request('MKCOL', NC_BASE_URL)
+    response = NC_SESSION.request('MKCOL', CONFIG.nc_base_url)
     if response.status_code == 201:
-        logger.debug(f'Folder {NC_DIR} created')
+        logger.debug(f'Folder {CONFIG.nc_dir} created')
     elif response.status_code == 405:
-        logger.debug(f'Folder {NC_DIR} already exists')
+        logger.debug(f'Folder {CONFIG.nc_dir} already exists')
     else:
-        logger.error(f'Error creating {NC_DIR}: {response.status_code} {response.text}')
-
-
-# webdav_upload([Path('test.txt')], Path('test.txt'))
-# print(webdav_ls())
+        logger.error(f'Error creating {CONFIG.nc_dir}: {response.status_code} {response.text}')

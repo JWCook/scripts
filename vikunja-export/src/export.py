@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 from logging import getLogger
 
 from .vikunja import get_tasks
-from .webdav import webdav_ls
+from .webdav import webdav_ls, webdav_upload
 
 logger = getLogger(__name__)
 
@@ -15,14 +16,12 @@ def main():
 
     # Write summary file, if changes have been made
     summary_file = next((file for file in remote_files if file.filename == 'tasks.md'), None)
-    if summary_file and summary_file.mtime > max(task.mtime for task in tasks):
+    if summary_file and summary_file.mtime < max(task.mtime for task in tasks):
+        combined_summary = '\n'.join(task.summary for task in tasks)
+        webdav_upload([combined_summary], 'tasks.md')
+    else:
         logger.info('No tasks have changed since last export')
         return
-    '\n'.join(task.summary for task in tasks)
-    # webdav_upload([combined_summary], 'tasks.md')
-
-    # logger.info(f'Found {len(detail_tasks)} tasks with details')
-    # logger.info(f'Export complete: {OUTPUT_DIR}')
 
     src_tasks = {task.id: task for task in tasks if task.detail}
     dest_tasks = {file.id: file.name for file in remote_files if file.name[0].isdigit()}
@@ -31,13 +30,15 @@ def main():
 
     # Remove any remote tasks that don't exist in source
     to_remove = dest_ids - src_ids
-    # for task_id in to_remove:
-    #     webdav_delete(dest_tasks[task_id])
+    for task_id in to_remove:
+        logger.info(f'Delete {dest_tasks[task_id]}')
+        # webdav_delete(dest_tasks[task_id])
 
     # Rename any dest files that have changed in source
     to_rename = {k for k in src_ids & dest_ids if src_tasks[k].name != dest_tasks[k].name}
-    # for task_id in to_rename:
-    #     webdav_rename(dest_tasks[task_id], src_tasks[task_id].name)
+    for task_id in to_rename:
+        logger.info(f'Rename: {dest_tasks[task_id]} -> {src_tasks[task_id].name}')
+        # webdav_rename(dest_tasks[task_id], src_tasks[task_id].name)
 
     # Update any dest files that have changed in source
     def has_changed(dt1, dt2):
@@ -47,7 +48,8 @@ def main():
         k for k in src_ids & dest_ids if has_changed(src_tasks[k].mtime, dest_tasks[k].mtime)
     }
     new = src_ids - dest_ids
-    # for task_id in to_update | new:
+    for task_id in to_update | new:
+        logger.info(f'Upload: {src_tasks[task_id].path}')
     #     webdav_upload(src_tasks[task_id].path, src_tasks[task_id].name)
 
     unchanged = (src_ids & dest_ids) - (to_rename | to_update)
@@ -59,3 +61,7 @@ def main():
         f'  Removed: {len(to_remove)}\n'
         f'  Unchanged: {len(unchanged)}\n'
     )
+
+
+if __name__ == '__main__':
+    main()
