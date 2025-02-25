@@ -26,10 +26,16 @@ class RemoteFile:
     @classmethod
     def from_xml(cls, element) -> 'RemoteFile':
         path = element.find('.//{DAV:}href').text
+        filename = path.split('/')[-1]
+        try:
+            task_id = int(filename.split('_')[0])
+        except (TypeError, ValueError):
+            task_id = -1
+
         return cls(
-            id=int(path.split('_')[0]),
+            id=task_id,
             path=path,
-            filename=path.split('/')[-1],
+            filename=filename,
             mtime=parse_date(element.find('.//{DAV:}getlastmodified').text),
         )
 
@@ -45,18 +51,18 @@ def _is_dir(element) -> bool:
     return element.find('.//{DAV:}collection') is not None
 
 
-def webdav_upload(local_path: Path, remote_path: Path):
+def webdav_upload(data: str, filename: Path):
     """Upload files to Nextcloud via WebDAV"""
-    _webdav_mkdir()
+    dest_url = f'{CONFIG.nc_base_url}/{filename}'
     response = NC_SESSION.put(
-        f'{CONFIG.nc_base_url}/{remote_path}',
-        data=local_path.read_bytes(),
+        dest_url,
+        data=data.encode(),
     )
 
     if response.ok:
-        logger.debug(f'Uploaded {local_path} -> {CONFIG.nc_base_url}/{remote_path}')
+        logger.debug(f'Uploaded {dest_url}')
     else:
-        logger.error(f'Error uploading {local_path}: {response.status_code} {response.text}')
+        logger.error(f'Error uploading {dest_url}: {response.status_code} {response.text}')
 
 
 def webdav_rename(src_path, dest_path):
@@ -81,9 +87,9 @@ def webdav_delete(remote_path):
         logger.error(f'Error deleting {remote_path}: {response.status_code} {response.text}')
 
 
-def _webdav_mkdir():
+def webdav_mkdir(remote_path):
     """Create the remote folder if it doesn't already exist"""
-    response = NC_SESSION.request('MKCOL', CONFIG.nc_base_url)
+    response = NC_SESSION.request('MKCOL', remote_path)
     if response.status_code == 201:
         logger.debug(f'Folder {CONFIG.nc_dir} created')
     elif response.status_code == 405:

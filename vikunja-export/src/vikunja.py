@@ -11,11 +11,11 @@ from typing import Iterator
 from dateutil.parser import parse as parse_date
 from html2text import HTML2Text
 
-from .config import VJA_SESSION, ignore_labels, ignore_projects, output_dir, vja_host
+from .config import CONFIG, VJA_SESSION
 
 # Settings from environment variables and/or .env file
-API_BASE_URL = f'https://{vja_host}/api/v1'
-TASK_BASE_URL = f'https://{vja_host}/tasks'
+API_BASE_URL = f'https://{CONFIG.vja_host}/api/v1'
+TASK_BASE_URL = f'https://{CONFIG.vja_host}/tasks'
 DT_FORMAT = '%Y-%m-%d'
 
 logger = getLogger(__name__)
@@ -53,13 +53,13 @@ def get_tasks() -> Iterator[Task]:
             task['labels'] = []
 
     # Filter out ignored projects and labels
-    logger.debug(f'Ignoring projects {ignore_projects} and labels {ignore_labels}')
+    logger.debug(f'Ignoring projects {CONFIG.ignore_projects} and labels {CONFIG.ignore_labels}')
     total_tasks = len(tasks)
     tasks = [
         t
         for t in tasks
-        if t['project'] not in ignore_projects
-        and all(lbl['title'] not in ignore_labels for lbl in t['labels'])
+        if t['project'] not in CONFIG.ignore_projects
+        and all(lbl['title'] not in CONFIG.ignore_labels for lbl in t['labels'])
     ]
     logger.info(f'Found {len(tasks)} tasks ({total_tasks - len(tasks)} ignored)')
 
@@ -88,7 +88,7 @@ def _paginate(url: str):
 
 def get_task_path(task: dict) -> Path:
     normalized_title = re.sub(r'[^\w\s]', '', task['title']).strip().replace(' ', '_')
-    return output_dir / f'{task["id"]}_{normalized_title}.md'
+    return CONFIG.output_dir / f'{task["id"]}_{normalized_title}.md'
 
 
 def get_task_detail(task: dict) -> str:
@@ -123,10 +123,10 @@ def get_task_detail(task: dict) -> str:
 
 
 def get_task_summary(task: dict) -> str:
-    labels = ' '.join([f'[{label}]' for label in task['labels']])
+    labels = ' '.join([f'[{label["title"]}]' for label in task['labels']])
     check = '✅ ' if task['done'] else '   '
     return (
-        f'{task["id"]:0>4}{check}: {task["project"]} / {task["title"]} {labels} {task["created"]}\n'
+        f'{task["id"]:0>4}{check}: {task["project"]} / {task["title"]} {labels} {task["created"]}'
     )
 
 
