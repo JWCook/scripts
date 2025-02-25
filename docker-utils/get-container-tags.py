@@ -7,67 +7,60 @@
 # ]
 # ///
 import argparse
-import sys
 from os import getenv
 
 import requests
 from dotenv import load_dotenv
-from requests.exceptions import RequestException
 
 load_dotenv()
 GH_API_TOKEN = getenv('GH_API_TOKEN')
 
 
-def fetch_dockerhub_tags(repository):
+def fetch_dockerhub_tags(repo):
     """Fetch tags from Docker Hub"""
-    if '/' not in repository:
-        repository = f'library/{repository}'
+    repo = repo.replace('docker.io/', '')
+    if '/' in repo:
+        org, repo = repo.split('/')
+    else:
+        org = 'library'
 
-    url = f'https://hub.docker.com/v2/repositories/{repository}/tags?page_size=100'
+    url = f'https://hub.docker.com/v2/repositories/{org}/{repo}/tags?page_size=100'
+
     all_tags = []
-
     while url:
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            for item in data['results']:
-                date_str = _format_date(item.get('last_updated'))
-                all_tags.append(f'{item["name"]} - {date_str}')
-
-            url = data.get('next')
-        except RequestException as e:
-            print(f'Error fetching Docker Hub tags: {e}')
-            break
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        for item in data['results']:
+            date_str = _format_date(item.get('last_updated'))
+            all_tags.append(f'{item["name"]} - {date_str}')
+        url = data.get('next')
 
     return all_tags
 
 
-def fetch_ghcr_tags(repository):
+# TODO: handle /users in addition to /orgs
+def fetch_ghcr_tags(repo):
     """Fetch tags from GitHub Container Registry"""
     if not GH_API_TOKEN:
         raise ValueError('GitHub personal access token required')
 
-    headers = {
-        'Authorization': f'Bearer {GH_API_TOKEN}',
-        'Accept': 'application/vnd.github.v3+json',
-    }
-    # TODO: handle /users
-    url = f'https://api.github.com/orgs/{repository.split("/")[0]}/packages/container/{repository.split("/")[1]}/versions'
+    org, repo = repo.replace('ghcr.io/', '').split('/')
+    response = requests.get(
+        f'https://api.github.com/orgs/{org}/packages/container/{repo}/versions',
+        headers={
+            'Authorization': f'Bearer {GH_API_TOKEN}',
+            'Accept': 'application/vnd.github.v3+json',
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+
     all_tags = []
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-
-        for item in data:
-            # Some versions might have multiple tags
-            for tag in item.get('metadata', {}).get('container', {}).get('tags', []):
-                date_str = _format_date(item.get('created_at'))
-                all_tags.append(f'{tag} - {date_str}')
-    except requests.exceptions.RequestException as e:
-        print(f'Error fetching GitHub Container Registry tags: {e}', file=sys.stderr)
+    for item in data:
+        for tag in item.get('metadata', {}).get('container', {}).get('tags', []):
+            date_str = _format_date(item.get('created_at'))
+            all_tags.append(f'{tag} - {date_str}')
 
     return all_tags
 
@@ -78,29 +71,31 @@ def fetch_ecr_tags(repo: str):
     response = requests.post(
         'https://api.us-east-1.gallery.ecr.aws/describeImageTags',
         json={'registryAliasName': registry, 'repositoryName': repo},
-    ).json()
-    return [f'{i["imageTag"]} - {_format_date(i["createdAt"])}' for i in response['imageTagDetails']]
+    )
+    response.raise_for_status()
+    tags_json = response.json()['imageTagDetails']
+    return [f'{i["imageTag"]} - {_format_date(i["createdAt"])}' for i in tags_json]
 
 
 def _format_date(dt: str | None) -> str:
     return dt.split('T')[0] if dt else 'N/A'
 
 
+def fetch_tags(repo: str) -> list[str]:
+    if repo.startswith('ghcr.io/'):
+        tags = fetch_ghcr_tags(repo)
+    elif repo.startswith('public.ecr.aws/'):
+        tags = fetch_ecr_tags(repo)
+    else:
+        tags = fetch_dockerhub_tags(repo)
+    return tags
+
+
 def main():
     parser = argparse.ArgumentParser(description='Fetch all tags and dates for a Docker container')
     parser.add_argument('repo', help='Repository in format [registry/]namespace/repository')
     args = parser.parse_args()
-
-    # Determine which registry to use based on the repository string
-    if args.repo.startswith('ghcr.io/'):
-        tags = fetch_ghcr_tags(args.repo.replace('ghcr.io/', ''))
-    elif args.repo.startswith('public.ecr.aws/'):
-        tags = fetch_ecr_tags(args.repo.replace('public.ecr.aws/', ''))
-    else:
-        # Assume Docker Hub for repositories without explicit registry
-        tags = fetch_dockerhub_tags(args.repo.replace('docker.io/', ''))
-
-    for tag in sorted(tags):
+    for tag in sorted(fetch_tags(args.repo)):
         print(tag)
 
 
