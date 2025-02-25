@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
+#     "python-dateutil",
 #     "python-dotenv",
 #     "requests-cache",
 # ]
@@ -13,12 +14,14 @@ from fnmatch import fnmatch
 from os import getenv
 from pathlib import Path
 
+from dateutil.parser import parse as parse_date
 from dotenv import load_dotenv
 from requests_cache import CachedSession
 
 load_dotenv(Path(__file__).resolve().parent / '.env')
+DT_FORMAT = '%Y-%m-%d'
 GH_API_TOKEN = getenv('GH_API_TOKEN')
-IGNORE_TAGS = ['sha256-*', 'master-*', '*.dev*']
+IGNORE_TAGS = ['sha256-*', 'main', 'main-*', 'master-*', '*.dev*', '*arm64*']
 
 session = CachedSession(
     'container_registries.db',
@@ -35,7 +38,7 @@ class Tag:
 
     @property
     def date(self) -> str:
-        return self.ts.split('T')[0] if self.ts else 'N/A'
+        return parse_date(self.ts).strftime(DT_FORMAT) if self.ts else 'N/A'
 
     @property
     def is_ignored(self):
@@ -54,20 +57,18 @@ def fetch_dockerhub_tags(repo) -> list[Tag]:
         org = 'library'
 
     url = f'https://hub.docker.com/v2/repositories/{org}/{repo}/tags?page_size=100'
-
     all_tags = []
     while url:
         response = session.get(url)
         response.raise_for_status()
-        data = response.json()
-        for item in data['results']:
+        tags_json = response.json().get('results', [])
+        for item in tags_json:
             all_tags.append(Tag(name=item['name'], ts=item.get('last_updated')))
-        url = data.get('next')
+        url = response.json().get('next')
 
     return all_tags
 
 
-# TODO: handle /users in addition to /orgs
 def fetch_ghcr_tags(repo) -> list[Tag]:
     """Fetch tags from GitHub Container Registry"""
     if not GH_API_TOKEN:
@@ -82,14 +83,22 @@ def fetch_ghcr_tags(repo) -> list[Tag]:
         },
     )
     response.raise_for_status()
-    data = response.json()
+    tags_json = response.json()
 
     all_tags = []
-    for item in data:
+    for item in tags_json:
         for tag in item.get('metadata', {}).get('container', {}).get('tags', []):
             all_tags.append(Tag(name=tag, ts=item.get('created_at')))
-
     return all_tags
+
+
+def fetch_quay_tags(repo: str) -> list[Tag]:
+    """Fetch tags from Quay.io"""
+    repo = repo.replace('quay.io/', '')
+    response = session.get(f'https://quay.io/api/v1/repository/{repo}/tag/')
+    response.raise_for_status()
+    tags_json = response.json().get('tags', [])
+    return [Tag(name=item['name'], ts=item.get('last_modified')) for item in tags_json]
 
 
 def fetch_ecr_tags(repo: str) -> list[Tag]:
@@ -105,8 +114,11 @@ def fetch_ecr_tags(repo: str) -> list[Tag]:
 
 
 def fetch_tags(repo: str) -> list[str]:
+    repo = repo.replace('lscr.io/', 'ghcr.io/')
     if repo.startswith('ghcr.io/'):
         tags = fetch_ghcr_tags(repo)
+    elif repo.startswith('quay.io/'):
+        tags = fetch_quay_tags(repo)
     elif repo.startswith('public.ecr.aws/'):
         tags = fetch_ecr_tags(repo)
     else:
