@@ -21,7 +21,7 @@ export VK_TOKEN=your-api-token
 
 Run the script:
 ```sh
-./vikunja-dump.py
+./main.py
 ```
 
 ## Output format

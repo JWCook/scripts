@@ -2,9 +2,8 @@
 
 import time
 
+from config import CONFIG
 from requests import RequestException, Response, Session
-
-from .config import CONFIG
 
 SESSION = Session()
 

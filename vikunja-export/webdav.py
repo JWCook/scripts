@@ -9,9 +9,8 @@ from logging import getLogger
 from pathlib import Path
 from xml.etree import ElementTree
 
+from config import CONFIG, NC_SESSION
 from dateutil.parser import parse as parse_date
-
-from .config import CONFIG, NC_SESSION
 
 logger = getLogger(__name__)
 

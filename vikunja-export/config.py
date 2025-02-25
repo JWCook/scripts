@@ -27,7 +27,6 @@ class EnvConfig:
     vja_token = environ.var()
     ignore_projects = environ.var(converter=split_list)
     ignore_labels = environ.var(converter=split_list)
-    output_dir = environ.var(converter=resolve_path)
 
     # Nextcloud/WebDAV settings
     nc_user = environ.var()
@@ -42,11 +41,6 @@ class EnvConfig:
 # First load .env (if it exists), then read environment variables
 load_dotenv()
 CONFIG = environ.to_config(EnvConfig)
-
-if not CONFIG.vja_host:
-    raise ValueError('API host required')
-if not CONFIG.vja_token:
-    raise ValueError('API token required')
 
 VJA_SESSION = Session()
 VJA_SESSION.headers = {'Authorization': f'Bearer {CONFIG.vja_token}'}

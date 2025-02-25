@@ -1,8 +1,7 @@
 from tempfile import NamedTemporaryFile
 
+from config import CONFIG
 from minio import Minio
-
-from .config import CONFIG
 
 
 def get_client() -> Minio:

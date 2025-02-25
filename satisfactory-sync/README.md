@@ -4,9 +4,8 @@ Script to sync Satisfactory saves between a multiplayer server and remote object
 Does not need to run on the same machine as the Satistactory server.
 
 # Usage
-* `pip install .`
 * Add a `.env` file or set environment variables; see [`.env_sample`](.env_sample)
-* `python -m src.sync`
+* `./sync.py`
 
 
 # TODO

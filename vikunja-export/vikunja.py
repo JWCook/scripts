@@ -4,14 +4,12 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from logging import getLogger
-from pathlib import Path
 from textwrap import dedent
 from typing import Iterator
 
+from config import CONFIG, VJA_SESSION
 from dateutil.parser import parse as parse_date
 from html2text import HTML2Text
-
-from .config import CONFIG, VJA_SESSION
 
 # Settings from environment variables and/or .env file
 API_BASE_URL = f'https://{CONFIG.vja_host}/api/v1'
@@ -24,14 +22,10 @@ logger = getLogger(__name__)
 @dataclass
 class Task:
     id: int
-    path: Path
+    filename: str
     mtime: datetime
     detail: str
     summary: str
-
-    @property
-    def filename(self):
-        return self.path.name
 
 
 def get_tasks() -> Iterator[Task]:
@@ -66,7 +60,7 @@ def get_tasks() -> Iterator[Task]:
     for task in tasks:
         yield Task(
             id=int(task['id']),
-            path=get_task_path(task),
+            filename=get_task_filename(task),
             mtime=parse_date(task['updated']),
             detail=get_task_detail(task),
             summary=get_task_summary(task),
@@ -86,9 +80,9 @@ def _paginate(url: str):
     return records
 
 
-def get_task_path(task: dict) -> Path:
+def get_task_filename(task: dict) -> str:
     normalized_title = re.sub(r'[^\w\s]', '', task['title']).strip().replace(' ', '_')
-    return CONFIG.output_dir / f'{task["id"]}_{normalized_title}.md'
+    return f'{task["id"]}_{normalized_title}.md'
 
 
 def get_task_detail(task: dict) -> str:

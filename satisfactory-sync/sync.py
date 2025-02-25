@@ -1,5 +1,15 @@
-from .api import get_save, get_token
-from .storage import get_client, upload_save
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "dotenv",
+#     "environ-config",
+#     "minio",
+#     "requests",
+# ]
+# ///
+from api import get_save, get_token
+from storage import get_client, upload_save
 
 
 # WIP

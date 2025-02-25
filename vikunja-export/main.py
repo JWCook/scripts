@@ -1,9 +1,19 @@
-#!/usr/bin/env python
+#!/usr/bin/env -S uv run
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "dotenv",
+#     "environ-config",
+#     "html2text",
+#     "python-dateutil",
+#     "requests",
+# ]
+# ///
 from logging import getLogger
 
-from .config import CONFIG
-from .vikunja import get_tasks
-from .webdav import webdav_delete, webdav_ls, webdav_mkdir, webdav_rename, webdav_upload
+from config import CONFIG
+from vikunja import get_tasks
+from webdav import webdav_delete, webdav_ls, webdav_mkdir, webdav_rename, webdav_upload
 
 logger = getLogger(__name__)
 
