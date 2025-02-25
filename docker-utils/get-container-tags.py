@@ -2,6 +2,7 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
+#     "python-dotenv",
 #     "requests",
 # ]
 # ///
@@ -44,6 +45,9 @@ def fetch_dockerhub_tags(repository):
 
 def fetch_ghcr_tags(repository):
     """Fetch tags from GitHub Container Registry"""
+    if not GH_API_TOKEN:
+        raise ValueError('GitHub personal access token required')
+
     headers = {
         'Authorization': f'Bearer {GH_API_TOKEN}',
         'Accept': 'application/vnd.github.v3+json',
@@ -68,25 +72,14 @@ def fetch_ghcr_tags(repository):
     return all_tags
 
 
-# TODO: maybe this can't be done with unauthenticated calls
 def fetch_ecr_tags(repo: str):
     """Fetch tags from Amazon ECR Public"""
-    # repo = repo.split("/", 1)[-1]
-    url = f'https://public.ecr.aws/v2/{repo}/tags/list'
-
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        all_tags = response.json().get('tags', [])
-
-        # For ECR Public, we might need additional API calls to get the date
-        # for tag in tags:
-        #     # date_str = _format_date('??')
-        #     all_tags.append(f"{tag} - N/A")
-    except RequestException as e:
-        print(f'Error fetching ECR Public tags: {e}')
-
-    return all_tags
+    registry, repo = repo.replace('public.ecr.aws/', '').split('/')
+    response = requests.post(
+        'https://api.us-east-1.gallery.ecr.aws/describeImageTags',
+        json={'registryAliasName': registry, 'repositoryName': repo},
+    ).json()
+    return [f'{i["imageTag"]} - {_format_date(i["createdAt"])}' for i in response['imageTagDetails']]
 
 
 def _format_date(dt: str | None) -> str:
@@ -99,9 +92,9 @@ def main():
     args = parser.parse_args()
 
     # Determine which registry to use based on the repository string
-    if args.repository.startswith('ghcr.io/'):
+    if args.repo.startswith('ghcr.io/'):
         tags = fetch_ghcr_tags(args.repo.replace('ghcr.io/', ''))
-    elif args.repository.startswith('public.ecr.aws/'):
+    elif args.repo.startswith('public.ecr.aws/'):
         tags = fetch_ecr_tags(args.repo.replace('public.ecr.aws/', ''))
     else:
         # Assume Docker Hub for repositories without explicit registry
