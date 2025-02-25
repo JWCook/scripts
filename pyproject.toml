@@ -6,13 +6,28 @@ license = 'MIT'
 readme = 'README.md'
 requires-python = '>=3.12'
 dependencies = [
+    'attrs',
     'environ-config',
     'html2text',
     'minio',
+    'mutagen',
     'python-dateutil',
     'python-dotenv',
+    'rich',
     'requests',
     'requests-cache',
+]
+
+[dependency-groups]
+dev = [
+    'ipdb',
+    'ipython',
+    'pandas',
+    'pillow',
+    'platformdirs',
+    'pyarrow',
+    'pyyaml',
+    'ujson',
 ]
 
 [tool.ruff]

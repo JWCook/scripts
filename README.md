@@ -1,2 +1,2 @@
 # Scripts
-Random one-off utility scripts
+Miscellaneous utility scripts that aren't generalized or polished enough to be in their own repos
