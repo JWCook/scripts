@@ -9,6 +9,7 @@
 import argparse
 from dataclasses import dataclass
 from datetime import timedelta
+from fnmatch import fnmatch
 from os import getenv
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from requests_cache import CachedSession
 
 load_dotenv(Path(__file__).resolve().parent / '.env')
 GH_API_TOKEN = getenv('GH_API_TOKEN')
+IGNORE_TAGS = ['sha256-*', 'master-*', '*.dev*']
 
 session = CachedSession(
     'container_registries.db',
@@ -34,6 +36,10 @@ class Tag:
     @property
     def date(self) -> str:
         return self.ts.split('T')[0] if self.ts else 'N/A'
+
+    @property
+    def is_ignored(self):
+        return any(fnmatch(self.name, pat) for pat in IGNORE_TAGS)
 
     def __str__(self) -> str:
         return f'{self.name} - {self.date}'
@@ -105,7 +111,7 @@ def fetch_tags(repo: str) -> list[str]:
         tags = fetch_ecr_tags(repo)
     else:
         tags = fetch_dockerhub_tags(repo)
-    return sorted([str(tag) for tag in tags])
+    return sorted([str(tag) for tag in tags if not tag.is_ignored])
 
 
 def main():
