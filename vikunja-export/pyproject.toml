@@ -1,7 +1,7 @@
 [project]
-name = 'scripts'
-version = '0.1.0'
-description = 'misc one-of utility scripts'
+name = 'vikunja-export'
+version = '0.0.1'
+description = 'Export text from Vikunja tasks to Markdown files'
 authors = [{ name = 'Jordan Cook' }]
 license = 'MIT'
 readme = 'README.md'
@@ -10,7 +10,6 @@ dependencies = [
     'python-dateutil',
     'python-dotenv',
     'requests',
-    'requests-cache',
     'html2text',
 ]
 
@@ -26,7 +25,3 @@ quote-style = 'single'
 
 [tool.ruff.lint]
 select = ['B', 'C4', 'C90', 'E', 'F', 'I']
-ignore = ['B023']
-
-[tool.ruff.lint.pycodestyle]
-max-line-length = 120

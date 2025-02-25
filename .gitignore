@@ -1,25 +1,19 @@
 *.db
 *.sqlite
+output/
+.ruff_cache
+.mypy_cache
 
 # Distribution / packaging
 .Python
 build/
-develop-eggs/
 dist/
 downloads/
-eggs/
-.eggs/
 lib/
 lib64/
-parts/
 sdist/
 temp/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
 
 # Environments
@@ -27,12 +21,10 @@ share/python-wheels/
 .venv
 env/
 venv/
-ENV/
-env.bak/
-venv.bak/
 
 # Editors
 .~*
 .idea/
 .vim/
 .vscode/
+
