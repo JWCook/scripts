@@ -10,3 +10,5 @@ install:
     ln -s `pwd`/parse-yt-links/parse-yt-links.py ~/.local/bin/parse-yt-links.py
     rm -rf ~/.local/bin/get-container-tags.py
     ln -s `pwd`/docker-utils/get_container_tags.py ~/.local/bin/get-container-tags.py
+    rm -rf ~/.local/bin/get-openrouter-creds.py
+    ln -s `pwd`/get-openrouter-creds.py ~/.local/bin/get-openrouter-creds.py
