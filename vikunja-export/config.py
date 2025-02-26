@@ -15,7 +15,7 @@ def split_list(list_str: str) -> list[str]:
 
 
 def resolve_path(p: str) -> Path:
-    return Path(p).expanduser().absolute()
+    return Path(p).expanduser().resolve()
 
 
 @environ.config(prefix=None)
@@ -39,7 +39,7 @@ class EnvConfig:
 
 
 # First load .env (if it exists), then read environment variables
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / '.env')
 CONFIG = environ.to_config(EnvConfig)
 
 VJA_SESSION = Session()

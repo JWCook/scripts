@@ -8,3 +8,5 @@ install:
     ln -s `pwd`/satisfactory-sync/main.py ~/.local/bin/sync-satisfactory.py
     rm -rf ~/.local/bin/parse-yt-links.py
     ln -s `pwd`/parse-yt-links/parse-yt-links.py ~/.local/bin/parse-yt-links.py
+    rm -rf ~/.local/bin/get-container-tags.py
+    ln -s `pwd`/docker-utils/get_container_tags.py ~/.local/bin/get-container-tags.py
