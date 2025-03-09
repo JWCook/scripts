@@ -45,4 +45,4 @@ function llm-sync-logs
 end
 
 llm-sync-logs
-# llm logs list -n 0 > llm-logs.md
+llm logs list -n 0 > ~/Nextcloud/Notes-Exported/llm-logs.md
