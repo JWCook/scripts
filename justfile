@@ -2,8 +2,8 @@ install:
     mkdir -p ~/.local/bin
     rm -f ~/.local/bin/sync-llm-logs
     ln -s `pwd`/sqlite-utils/sync-llm-logs.fish ~/.local/bin/sync-llm-logs
-    rm -f ~/.local/bin/vk-export.py
-    ln -s `pwd`/vikunja-export/main.py ~/.local/bin/vk-export.py
+    rm -f ~/.local/bin/vikunja-export.py
+    ln -s `pwd`/vikunja-export/main.py ~/.local/bin/vikunja-export.py
     rm -f ~/.local/bin/sync-satisfactory.py
     ln -s `pwd`/satisfactory-sync/main.py ~/.local/bin/sync-satisfactory.py
     rm -rf ~/.local/bin/parse-yt-links.py
