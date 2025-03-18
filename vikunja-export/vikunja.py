@@ -30,11 +30,28 @@ class Task:
 
 def get_tasks() -> Iterator[Task]:
     """Get all tasks add comments and projects, and format for export"""
-    logger.info('Fetching tasks')
-    tasks = _paginate(f'{API_BASE_URL}/tasks/all')
     logger.debug('Fetching projects')
     projects = _paginate(f'{API_BASE_URL}/projects')
-    projects = {p['id']: p['title'] for p in projects}
+    project_titles = {p['id']: p['title'] for p in projects}
+
+    # Add bucket info
+    for p in projects:
+        if kanban_views := [v for v in p['views'] if v['view_kind'] == 'kanban']:
+            p['main_view_id'] = next(iter(kanban_views), None)['id']
+        else:
+            p['main_view_id'] = p['views'][0]['id']
+
+    # Fetch tasks for each project
+    logger.info('Fetching tasks')
+    tasks = []
+    for p in projects:
+        view_id = p['main_view_id']
+        response = _paginate(f'{API_BASE_URL}/projects/{p["id"]}/views/{view_id}/tasks')
+        for bucket in response:
+            bucket_tasks = bucket.get('tasks') or []
+            for t in bucket_tasks:
+                t['bucket'] = bucket['title']
+            tasks.extend(bucket_tasks)
 
     # Add comments and project titles
     logger.debug('Fetching comments')
@@ -42,7 +59,7 @@ def get_tasks() -> Iterator[Task]:
         response = VJA_SESSION.get(f'{API_BASE_URL}/tasks/{task["id"]}/comments')
         task['comments'] = response.json()
         if project_id := task.pop('project_id', None):
-            task['project'] = projects[project_id]
+            task['project'] = project_titles[project_id]
         if not task.get('labels'):
             task['labels'] = []
 
@@ -91,13 +108,17 @@ def get_task_detail(task: dict) -> str:
 
     labels = ', '.join([label['title'] for label in task['labels'] or []])
     completed_dt = parse_date(task['done_at']) if task['done'] else 'N/A'
+    project_str = task['project']
+    if bucket := task.get('bucket'):
+        project_str += f' ({bucket})'
+
     detail = [
         f'# {task["title"]}',
         f'* URL: {TASK_BASE_URL}/{task["id"]}',
         f'* Created: {_format_dt(task["created"])}',
         f'* Updated: {_format_dt(task["updated"])}',
         f'* Completed: {completed_dt}',
-        f'* Project: {task["project"]}',
+        f'* Project: {project_str}',
         f'* Labels: {labels}',
     ]
     if task['description']:

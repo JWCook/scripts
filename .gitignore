@@ -5,6 +5,7 @@
 __pycache__/
 node_modules/
 output/
+sample_data/
 uv.lock
 
 # Distribution / packaging
