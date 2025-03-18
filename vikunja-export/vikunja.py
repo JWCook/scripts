@@ -15,6 +15,14 @@ from html2text import HTML2Text
 API_BASE_URL = f'https://{CONFIG.vja_host}/api/v1'
 TASK_BASE_URL = f'https://{CONFIG.vja_host}/tasks'
 DT_FORMAT = '%Y-%m-%d'
+BUCKET_SYMBOLS = {
+    'Backlog': '📥',
+    'Next': '🔜',
+    'In Progress': '🚧',
+    'Done': '✅',
+    'Shelved': '📦',
+    'Blocked': '🚫',
+}
 
 logger = getLogger(__name__)
 
@@ -139,9 +147,13 @@ def get_task_detail(task: dict) -> str:
 
 def get_task_summary(task: dict) -> str:
     labels = ' '.join([f'[{label["title"]}]' for label in task['labels']])
-    check = '✅ ' if task['done'] else '   '
+    status = '  '
+    if task['done']:
+        status = '✅'
+    elif bucket_symbol := BUCKET_SYMBOLS.get(task.get('bucket')):
+        status = bucket_symbol
     return (
-        f'{task["id"]:0>4}{check}: {task["project"]} / {task["title"]} {labels} {task["created"]}'
+        f'{task["id"]:0>4}{status} : {task["project"]} / {task["title"]} {labels} {task["created"]}'
     )
 
 
