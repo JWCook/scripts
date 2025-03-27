@@ -1,4 +1,4 @@
-# Vikunja-Export
+# Vikunja Task Export
 
 This is a tool to export relevant text from tasks in [Vikunja](https://vikunja.io) to Markdown files synced to Nextcloud.
 
