@@ -12,7 +12,7 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.9
+    rev: v0.12.7
     hooks:
       - id: ruff
         args: [--fix]
@@ -24,6 +24,6 @@ repos:
         types_or: [json, yaml]
         args: ['--single-quote']
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.0
+    rev: v8.28.0
     hooks:
       - id: gitleaks
