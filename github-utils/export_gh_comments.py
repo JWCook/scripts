@@ -184,25 +184,19 @@ def fetch_github_comments(username: str, cursor=None):
         )
 
     # Check if there are more comments to fetch
-    issue_page_info = user_data['issueComments']['pageInfo']
-    review_page_info = user_data['contributionsCollection']['pullRequestReviewContributions'][
-        'pageInfo'
+    page_infos = [
+        user_data['issueComments']['pageInfo'],
+        user_data['pullRequests']['pageInfo'],
+        user_data['contributionsCollection']['pullRequestReviewContributions']['pageInfo'],
+        user_data['repositoryDiscussionComments']['pageInfo'],
     ]
-    discussion_page_info = user_data['repositoryDiscussionComments']['pageInfo']
-    pr_page_info = user_data['pullRequests']['pageInfo']
-
-    if issue_page_info['hasNextPage']:
-        next_cursor = issue_page_info['endCursor']
-    elif pr_page_info['hasNextPage']:
-        next_cursor = pr_page_info['endCursor']
-    elif review_page_info['hasNextPage']:
-        next_cursor = review_page_info['endCursor']
-    elif discussion_page_info['hasNextPage']:
-        next_cursor = discussion_page_info['endCursor']
-    else:
-        return comments
-
-    return comments + fetch_github_comments(username, next_cursor)
+    next_cursor = next(
+        (p['endCursor'] for p in page_infos if p['hasNextPage']),
+        None,
+    )
+    if next_cursor:
+        return comments + fetch_github_comments(username, next_cursor)
+    return comments
 
 
 def deduplicate_comments(comments: list[dict]) -> list[dict]:

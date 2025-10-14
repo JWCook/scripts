@@ -1,2 +1,2 @@
 # Scripts
-Miscellaneous utility scripts that aren't generalized or polished enough to be in their own repos
+Little tools and miscellaneous utility scripts that aren't generalized or polished enough to be in their own repos
