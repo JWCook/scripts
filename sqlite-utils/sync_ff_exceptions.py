@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run
+#!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.10"
 # ///
@@ -10,6 +10,7 @@ sync.
 """
 
 import sqlite3
+from argparse import ArgumentParser
 from configparser import ConfigParser
 from pathlib import Path
 from time import time
@@ -19,7 +20,7 @@ EXPORT_PATH = Path(__file__).parent / 'ff_exceptions.txt'
 BROWSER_DIR = Path('~/.librewolf').expanduser()
 
 
-def find_profile_dir() -> Path:
+def find_profile_dir() -> Path | None:
     """Find path of Firefox default profile"""
 
     # Get profile name from profiles.ini
@@ -27,11 +28,8 @@ def find_profile_dir() -> Path:
     config.read(BROWSER_DIR / 'profiles.ini')
     for section in config.sections():
         if section.startswith('Install') and 'Default' in config[section]:
-            profile_dir = BROWSER_DIR / config[section]['Default']
-
-    if not profile_dir or not profile_dir.exists():
-        raise ValueError('Default profile dir not found')
-    return profile_dir
+            return BROWSER_DIR / config[section]['Default']
+    return None
 
 
 def test_locked(db_path: Path):
@@ -49,7 +47,11 @@ def test_locked(db_path: Path):
 
 def import_hosts(db_path: Path, export_path: Path):
     """Import permission exceptions from repo to Librefox"""
-    print(f'Importing to {db_path}')
+    if not export_path.exists():
+        print('Nothing to import')
+        return
+
+    print(f'⬇️ Importing to {db_path}')
     conn = sqlite3.connect(db_path)
     hosts = export_path.read_text().splitlines()
     for host in hosts:
@@ -72,7 +74,7 @@ def import_hosts(db_path: Path, export_path: Path):
 
 def export_hosts(db_path: Path, export_path: Path):
     """Export permission exceptions from Librefox to repo"""
-    print(f'Exporting from {db_path}')
+    print(f'⬆️ Exporting from {db_path} to {export_path}')
     conn = sqlite3.connect(db_path)
     results = conn.execute("SELECT origin from moz_perms WHERE type='cookie';")
     with export_path.open('w') as f:
@@ -80,10 +82,33 @@ def export_hosts(db_path: Path, export_path: Path):
         f.write('\n'.join(hosts) + '\n')
 
 
-if __name__ == '__main__':
-    profile_dir = find_profile_dir()
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        '-p',
+        '--profile-dir',
+        default=find_profile_dir(),
+        help='Browser profile directory',
+    )
+    parser.add_argument(
+        '-e',
+        '--export-path',
+        default=EXPORT_PATH,
+        help='Path to file containing hosts to sync',
+    )
+    args = parser.parse_args()
+
+    profile_dir = Path(args.profile_dir).expanduser()
+    if not profile_dir or not profile_dir.exists():
+        raise ValueError('Profile dir not found')
+    export_path = Path(args.export_path).expanduser()
+    export_path.parent.mkdir(parents=True, exist_ok=True)
+
     db_path = profile_dir / 'permissions.sqlite'
-    export_path = EXPORT_PATH
     test_locked(db_path)
     import_hosts(db_path, export_path)
     export_hosts(db_path, export_path)
+
+
+if __name__ == '__main__':
+    main()
