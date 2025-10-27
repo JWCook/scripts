@@ -1,1 +1,1 @@
-Utilities to merge table contents between two SQLite databases
+Utilities to merge/sync SQLite table contents

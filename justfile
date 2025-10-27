@@ -1,5 +1,10 @@
+# Symlink scripts into ~/.local/bin/
 install:
     mkdir -p ~/.local/bin
+
+    rm -f ~/.local/bin/sync-ff-exceptions
+    ln -s `pwd`/sqlite-utils/sync_ff_exceptions.py ~/.local/bin/sync-ff-exceptions
+
     rm -f ~/.local/bin/sync-llm-logs
     ln -s `pwd`/sqlite-utils/sync-llm-logs.fish ~/.local/bin/sync-llm-logs
 
