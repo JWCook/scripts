@@ -1,11 +1,13 @@
 # Vikunja Task Export
 
-This is a tool to export relevant text from tasks in [Vikunja](https://vikunja.io) to Markdown files synced to Nextcloud.
+This is a tool to export relevant text from tasks in [Vikunja](https://vikunja.io) to Markdown files,
+which are then uploaded to Nextcloud. File upload is done directly via WebDAV API, allowing it to be
+run headlessly, i.e. without relying on the desktop sync client.
 
-This is very much tailored to my own use case, but it could be made more generic if there's interest.
+This is very much tailored to my own needs, but it could be made more generic if there's interest.
 
 My use case for this is taking useful notes I've previously added to tasks, and exporting them
-to make them easily searchable using standard command line tools.
+to make them easily searchable using command line tools like `ripgrep`.
 
 ## Usage
 Install [`uv`](https://docs.astral.sh/uv):
@@ -13,16 +15,22 @@ Install [`uv`](https://docs.astral.sh/uv):
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Set Vikunja host and token as environment variables (or in a `.env` file):
+Set Vikunja and Nextcloud connection info in either environment variables or a [`.env`](.env.sample) file:
 ```sh
 export VK_HOST=vikunja.example.com
 export VK_TOKEN=your-api-token
+export NC_USER=test.user
+export NC_PASS=nc-app-password
+export NC_HOST=nextcloud.example.com
+export NC_DIR=test
 ```
 
 Run the script:
 ```sh
 ./main.py
 ```
+
+Optionally symlink `main.py` to somewhere on your `$PATH`. All python-specific setup us handled by `uv`.
 
 ## Output format
 **Summary:**
