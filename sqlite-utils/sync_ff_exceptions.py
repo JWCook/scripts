@@ -15,7 +15,6 @@ from configparser import ConfigParser
 from pathlib import Path
 from time import time
 
-# TODO: accept both of these as optional args
 EXPORT_PATH = Path(__file__).parent / 'ff_exceptions.txt'
 BROWSER_DIR = Path('~/.librewolf').expanduser()
 
