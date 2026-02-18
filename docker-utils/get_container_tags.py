@@ -9,6 +9,7 @@
 # ]
 # ///
 import argparse
+import re
 from dataclasses import dataclass
 from datetime import timedelta
 from fnmatch import fnmatch
@@ -247,6 +248,18 @@ def _fetch_oci_timestamp(base: str, tag: str, auth_headers: dict) -> str | None:
         return None
 
 
+def _version_key(tag: Tag) -> tuple[int, ...]:
+    name = tag.name.lstrip('vV')
+    parts = []
+    for part in name.split('.'):
+        # Strip non-numeric suffix from each segment (e.g. "9-alpine" → 9, "10b3" → 10)
+        numeric = re.match(r'^\d+', part)
+        if not numeric:
+            break
+        parts.append(int(numeric.group()))
+    return tuple(parts) if parts else (0,)
+
+
 def fetch_tags(repo: str) -> list[str]:
     repo = repo.replace('lscr.io/', 'ghcr.io/')
     if repo.startswith('ghcr.io/'):
@@ -261,7 +274,8 @@ def fetch_tags(repo: str) -> list[str]:
         tags = fetch_gitlab_tags(repo)
     else:
         tags = fetch_dockerhub_tags(repo)
-    return sorted([str(tag) for tag in tags if not tag.is_ignored])
+    tags = sorted(tags, key=_version_key)
+    return [str(tag) for tag in tags if not tag.is_ignored]
 
 
 def main():
