@@ -35,6 +35,7 @@ session = CachedSession(
     urls_expire_after={
         'codeberg.org/v2/*/manifests/*': NEVER_EXPIRE,
         'codeberg.org/v2/*/blobs/*': NEVER_EXPIRE,
+        'gitlab.com/api/v4/projects/*/registry/repositories/*/tags/*': NEVER_EXPIRE,
         '*': timedelta(hours=1),
     },
 )
@@ -151,11 +152,49 @@ def fetch_codeberg_tags(repo: str) -> Iterator[Tag]:
             f'https://codeberg.org{next_url}' if next_url and next_url.startswith('/') else next_url
         )
 
-    printable_tags = [t for t in tags if not t.is_ignored]
-    logger.info(f'Fetching timestamps for {len(printable_tags)}/{len(tags)} tags')
+    n_printable = sum(1 for t in tags if not t.is_ignored)
+    logger.info(f'Fetching timestamps for {n_printable}/{len(tags)} tags')
     for t in tags:
         if not t.is_ignored:
             t.ts = _fetch_oci_timestamp(base, t.name, auth_headers)
+        yield t
+
+
+def fetch_gitlab_tags(repo: str) -> Iterator[Tag]:
+    """Fetch tags from GitLab Container Registry via GitLab REST API"""
+    # repo format: registry.gitlab.com/group/project[/image]
+    path = repo.replace('registry.gitlab.com/', '')  # e.g. "group/project"
+    encoded_path = path.replace('/', '%2F')
+    base = f'https://gitlab.com/api/v4/projects/{encoded_path}/registry/repositories'
+
+    # Find the registry repository ID
+    response = session.get(base)
+    response.raise_for_status()
+    repos = response.json()
+    if not repos:
+        return
+    repo_id = repos[0]['id']
+
+    # Paginate tags via Link header
+    url: str | None = f'{base}/{repo_id}/tags?per_page=100'
+    tags = []
+    while url:
+        response = session.get(url)
+        response.raise_for_status()
+        tags.extend(Tag(name=item['name']) for item in response.json())
+        link = response.headers.get('Link', '')
+        url = next(
+            (p.split(';')[0].strip().strip('<>') for p in link.split(',') if 'rel="next"' in p),
+            None,
+        )
+
+    # Fetch created_at per tag
+    n_printable = sum(1 for t in tags if not t.is_ignored)
+    logger.info(f'Fetching timestamps for {n_printable}/{len(tags)} tags')
+    for t in tags:
+        if not t.is_ignored:
+            detail = session.get(f'{base}/{repo_id}/tags/{t.name}')
+            t.ts = detail.json().get('created_at') if detail.ok else None
         yield t
 
 
@@ -199,6 +238,8 @@ def fetch_tags(repo: str) -> list[str]:
         tags = fetch_ecr_tags(repo)
     elif repo.startswith('codeberg.org/'):
         tags = fetch_codeberg_tags(repo)
+    elif repo.startswith('registry.gitlab.com/'):
+        tags = fetch_gitlab_tags(repo)
     else:
         tags = fetch_dockerhub_tags(repo)
     return sorted([str(tag) for tag in tags if not tag.is_ignored])
