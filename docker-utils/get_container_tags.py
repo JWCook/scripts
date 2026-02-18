@@ -12,9 +12,10 @@ import argparse
 from dataclasses import dataclass
 from datetime import timedelta
 from fnmatch import fnmatch
-from logging import getLogger
+from logging import basicConfig, getLogger
 from os import getenv
 from pathlib import Path
+from typing import Iterator
 
 import requests
 from dateutil.parser import parse as parse_date
@@ -29,7 +30,7 @@ IGNORE_TAGS = ['sha256-*', 'main', 'main-*', 'master-*', '*.dev*', '*arm64*']
 logger = getLogger(__name__)
 session = CachedSession(
     'container_registries.db',
-    use_temp=True,
+    use_cache_dir=True,
     allowable_methods=['GET', 'POST'],
     urls_expire_after={
         'codeberg.org/v2/*/manifests/*': NEVER_EXPIRE,
@@ -42,7 +43,7 @@ session = CachedSession(
 @dataclass
 class Tag:
     name: str
-    ts: str | None
+    ts: str | None = None
 
     @property
     def date(self) -> str:
@@ -57,7 +58,7 @@ class Tag:
         return f'{self.name}{date_str}'
 
 
-def fetch_dockerhub_tags(repo) -> list[Tag]:
+def fetch_dockerhub_tags(repo) -> Iterator[Tag]:
     """Fetch tags from Docker Hub"""
     repo = repo.replace('docker.io/', '')
     if '/' in repo:
@@ -66,19 +67,16 @@ def fetch_dockerhub_tags(repo) -> list[Tag]:
         org = 'library'
 
     url = f'https://hub.docker.com/v2/repositories/{org}/{repo}/tags?page_size=100'
-    all_tags = []
     while url:
         response = session.get(url)
         response.raise_for_status()
         tags_json = response.json().get('results', [])
         for item in tags_json:
-            all_tags.append(Tag(name=item['name'], ts=item.get('last_updated')))
+            yield Tag(name=item['name'], ts=item.get('last_updated'))
         url = response.json().get('next')
 
-    return all_tags
 
-
-def fetch_ghcr_tags(repo) -> list[Tag]:
+def fetch_ghcr_tags(repo) -> Iterator[Tag]:
     """Fetch tags from GitHub Container Registry"""
     if not GH_API_TOKEN:
         raise ValueError('GitHub personal access token required')
@@ -92,25 +90,23 @@ def fetch_ghcr_tags(repo) -> list[Tag]:
         },
     )
     response.raise_for_status()
-    tags_json = response.json()
-
-    all_tags = []
-    for item in tags_json:
+    for item in response.json():
         for tag in item.get('metadata', {}).get('container', {}).get('tags', []):
-            all_tags.append(Tag(name=tag, ts=item.get('created_at')))
-    return all_tags
+            yield Tag(name=tag, ts=item.get('created_at'))
 
 
-def fetch_quay_tags(repo: str) -> list[Tag]:
+def fetch_quay_tags(repo: str) -> Iterator[Tag]:
     """Fetch tags from Quay.io"""
     repo = repo.replace('quay.io/', '')
     response = session.get(f'https://quay.io/api/v1/repository/{repo}/tag/')
     response.raise_for_status()
-    tags_json = response.json().get('tags', [])
-    return [Tag(name=item['name'], ts=item.get('last_modified')) for item in tags_json]
+    yield from (
+        Tag(name=item['name'], ts=item.get('last_modified'))
+        for item in response.json().get('tags', [])
+    )
 
 
-def fetch_ecr_tags(repo: str) -> list[Tag]:
+def fetch_ecr_tags(repo: str) -> Iterator[Tag]:
     """Fetch tags from Amazon ECR Public"""
     registry, repo = repo.replace('public.ecr.aws/', '').split('/')
     response = session.post(
@@ -118,11 +114,12 @@ def fetch_ecr_tags(repo: str) -> list[Tag]:
         json={'registryAliasName': registry, 'repositoryName': repo},
     )
     response.raise_for_status()
-    tags_json = response.json()['imageTagDetails']
-    return [Tag(name=i['imageTag'], ts=i['createdAt']) for i in tags_json]
+    yield from (
+        Tag(name=i['imageTag'], ts=i['createdAt']) for i in response.json()['imageTagDetails']
+    )
 
 
-def fetch_codeberg_tags(repo: str) -> list[Tag]:
+def fetch_codeberg_tags(repo: str) -> Iterator[Tag]:
     """Fetch tags from Codeberg (Forgejo) container registry using OCI Distribution Spec"""
     path = repo.replace('codeberg.org/', '')  # e.g. "owner/image"
     base = f'https://codeberg.org/v2/{path}'
@@ -142,7 +139,8 @@ def fetch_codeberg_tags(repo: str) -> list[Tag]:
         response = session.get(url, headers=auth_headers)
         response.raise_for_status()
         data = response.json()
-        tags.extend(data.get('tags') or [])
+        if response_tags := data.get('tags'):
+            tags.extend([Tag(name=t) for t in response_tags])
         # Pagination via Link header (relative URLs)
         link = response.headers.get('Link', '')
         next_url = next(
@@ -153,8 +151,12 @@ def fetch_codeberg_tags(repo: str) -> list[Tag]:
             f'https://codeberg.org{next_url}' if next_url and next_url.startswith('/') else next_url
         )
 
-    logger.info('Fetching timestamps for {len(tags)} tags')
-    return [Tag(name=tag, ts=_fetch_oci_timestamp(base, tag, auth_headers)) for tag in tags]
+    printable_tags = [t for t in tags if not t.is_ignored]
+    logger.info(f'Fetching timestamps for {len(printable_tags)}/{len(tags)} tags')
+    for t in tags:
+        if not t.is_ignored:
+            t.ts = _fetch_oci_timestamp(base, t.name, auth_headers)
+        yield t
 
 
 def _fetch_oci_timestamp(base: str, tag: str, auth_headers: dict) -> str | None:
@@ -205,7 +207,10 @@ def fetch_tags(repo: str) -> list[str]:
 def main():
     parser = argparse.ArgumentParser(description='Fetch all tags and dates for a Docker container')
     parser.add_argument('repo', help='Repository in format [registry/]namespace/repository')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose logging')
     args = parser.parse_args()
+    if args.verbose:
+        basicConfig(level='INFO')
     for tag in fetch_tags(args.repo):
         print(tag)
 

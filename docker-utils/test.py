@@ -7,7 +7,7 @@ from get_container_tags import fetch_tags
     [
         ('ghcr.io/home-assistant/home-assistant', '2025.2.5 - 2025-02-21'),
         ('lscr.io/linuxserver/plex', '1.41.4 - 2025-02-24'),
-        ('quay.io/prometheus/prometheus', 'v3.0.0 - 2024-11-14'),
+        ('quay.io/prometheus/prometheus', 'v3.5.0 - 2025-07-14'),
         ('public.ecr.aws/aws-dynamodb-local/aws-dynamodb-local', '2.0.0 - 2023-10-03'),
         ('grafana/grafana', '9.0.0 - 2022-06-14'),
         ('redis', '7.0.0 - 2022-05-29'),
