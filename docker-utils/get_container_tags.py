@@ -25,7 +25,17 @@ from requests_cache import NEVER_EXPIRE, CachedSession
 load_dotenv(Path(__file__).resolve().parent / '.env')
 DT_FORMAT = '%Y-%m-%d'
 GH_API_TOKEN = getenv('GH_API_TOKEN')
-IGNORE_TAGS = ['sha256-*', 'main', 'main-*', 'master-*', '*.dev*', '*arm64*']
+IGNORE_TAGS = [
+    'sha256-*',
+    'sha-*',
+    'main',
+    'main-*',
+    'master-*',
+    '*.dev*',
+    '*-test',
+    '*arm32*',
+    '*arm64*',
+]
 
 logger = getLogger(__name__)
 session = CachedSession(
@@ -33,8 +43,8 @@ session = CachedSession(
     use_cache_dir=True,
     allowable_methods=['GET', 'POST'],
     urls_expire_after={
-        'codeberg.org/v2/*/manifests/*': NEVER_EXPIRE,
-        'codeberg.org/v2/*/blobs/*': NEVER_EXPIRE,
+        '*/v2/*/manifests/*': NEVER_EXPIRE,
+        '*/v2/*/blobs/*': NEVER_EXPIRE,
         'gitlab.com/api/v4/projects/*/registry/repositories/*/tags/*': NEVER_EXPIRE,
         '*': timedelta(hours=1),
     },
@@ -77,14 +87,22 @@ def fetch_dockerhub_tags(repo) -> Iterator[Tag]:
         url = response.json().get('next')
 
 
-def fetch_ghcr_tags(repo) -> Iterator[Tag]:
-    """Fetch tags from GitHub Container Registry"""
-    if not GH_API_TOKEN:
-        raise ValueError('GitHub personal access token required')
+def fetch_ghcr_tags(repo: str) -> Iterator[Tag]:
+    """Fetch tags from GitHub Container Registry.
 
-    org, repo = repo.replace('ghcr.io/', '').split('/')
+    Uses the GitHub REST API when an access token is available,
+    otherwise falls back to the OCI Distribution Spec with anonymous token exchange
+    """
+    path = repo.replace('ghcr.io/', '')
+
+    if not GH_API_TOKEN:
+        token_url = f'https://ghcr.io/token?service=ghcr.io&scope=repository:{path}:pull'
+        yield from _fetch_oci_tags(host='https://ghcr.io', path=path, token_url=token_url)
+        return
+
+    org, image = path.split('/', 1)
     response = session.get(
-        f'https://api.github.com/orgs/{org}/packages/container/{repo}/versions',
+        f'https://api.github.com/orgs/{org}/packages/container/{image}/versions',
         headers={
             'Authorization': f'Bearer {GH_API_TOKEN}',
             'Accept': 'application/vnd.github.v3+json',
@@ -123,41 +141,11 @@ def fetch_ecr_tags(repo: str) -> Iterator[Tag]:
 def fetch_codeberg_tags(repo: str) -> Iterator[Tag]:
     """Fetch tags from Codeberg (Forgejo) container registry using OCI Distribution Spec"""
     path = repo.replace('codeberg.org/', '')  # e.g. "owner/image"
-    base = f'https://codeberg.org/v2/{path}'
-
     # Codeberg requires a Bearer token even for public images (anonymous token exchange)
-    token_resp = session.get(
+    token_url = (
         f'https://codeberg.org/v2/token?service=container_registry&scope=repository:{path}:pull'
     )
-    token_resp.raise_for_status()
-    token = token_resp.json()['token']
-    auth_headers = {'Authorization': f'Bearer {token}'}
-
-    # Paginate tag list
-    tags = []
-    url = f'{base}/tags/list?n=100'
-    while url:
-        response = session.get(url, headers=auth_headers)
-        response.raise_for_status()
-        data = response.json()
-        if response_tags := data.get('tags'):
-            tags.extend([Tag(name=t) for t in response_tags])
-        # Pagination via Link header (relative URLs)
-        link = response.headers.get('Link', '')
-        next_url = next(
-            (p.split(';')[0].strip().strip('<>') for p in link.split(',') if 'rel="next"' in p),
-            None,
-        )
-        url = (
-            f'https://codeberg.org{next_url}' if next_url and next_url.startswith('/') else next_url
-        )
-
-    n_printable = sum(1 for t in tags if not t.is_ignored)
-    logger.info(f'Fetching timestamps for {n_printable}/{len(tags)} tags')
-    for t in tags:
-        if not t.is_ignored:
-            t.ts = _fetch_oci_timestamp(base, t.name, auth_headers)
-        yield t
+    yield from _fetch_oci_tags(host='https://codeberg.org', path=path, token_url=token_url)
 
 
 def fetch_gitlab_tags(repo: str) -> Iterator[Tag]:
@@ -195,6 +183,37 @@ def fetch_gitlab_tags(repo: str) -> Iterator[Tag]:
         if not t.is_ignored:
             detail = session.get(f'{base}/{repo_id}/tags/{t.name}')
             t.ts = detail.json().get('created_at') if detail.ok else None
+        yield t
+
+
+def _fetch_oci_tags(host: str, path: str, token_url: str) -> Iterator[Tag]:
+    """Fetch tags from an OCI-compatible registry using anonymous token exchange"""
+    token_resp = session.get(token_url)
+    token_resp.raise_for_status()
+    token = token_resp.json()['token']
+    auth_headers = {'Authorization': f'Bearer {token}'}
+
+    base = f'{host}/v2/{path}'
+    tags: list[Tag] = []
+    url: str | None = f'{base}/tags/list?n=100'
+    while url:
+        response = session.get(url, headers=auth_headers)
+        response.raise_for_status()
+        if response_tags := response.json().get('tags'):
+            tags.extend(Tag(name=t) for t in response_tags)
+        # Pagination via Link header (may contain relative URLs)
+        link = response.headers.get('Link', '')
+        next_url = next(
+            (p.split(';')[0].strip().strip('<>') for p in link.split(',') if 'rel="next"' in p),
+            None,
+        )
+        url = f'{host}{next_url}' if next_url and next_url.startswith('/') else next_url
+
+    n_printable = sum(1 for t in tags if not t.is_ignored)
+    logger.info(f'Fetching timestamps for {n_printable}/{len(tags)} tags')
+    for t in tags:
+        if not t.is_ignored:
+            t.ts = _fetch_oci_timestamp(base, t.name, auth_headers)
         yield t
 
 
