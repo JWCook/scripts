@@ -11,6 +11,7 @@ from get_container_tags import fetch_tags
         ('public.ecr.aws/aws-dynamodb-local/aws-dynamodb-local', '2.0.0 - 2023-10-03'),
         ('grafana/grafana', '9.0.0 - 2022-06-14'),
         ('redis', '7.0.0 - 2022-05-29'),
+        ('codeberg.org/readeck/readeck', '0.10.0 - 2023-12-02'),
     ],
 )
 def test_fetch_tags(repo, expected_tag):
